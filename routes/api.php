@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin-only Routes
     Route::middleware('admin')->group(function () {
 
+    
         // Products (admin management)
         Route::post('/products',               [ProductController::class, 'store']);
         Route::put('/products/{id}',           [ProductController::class, 'update']);
