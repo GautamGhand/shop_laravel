@@ -187,4 +187,147 @@ class OrderControllerTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['items.0.quantity', 'items.0.price', 'total']);
     }
+
+    public function test_unauthenticated_user_cannot_list_orders(): void
+    {
+        $response = $this->getJson('/api/orders');
+        $response->assertStatus(401);
+    }
+
+    public function test_customer_can_list_only_their_own_orders(): void
+    {
+        $customer1 = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+        $customer2 = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+
+        $order1 = Order::create([
+            'customer_id' => $customer1->id,
+            'total'       => 100.00,
+            'status'      => 'pending',
+        ]);
+
+        $order2 = Order::create([
+            'customer_id' => $customer2->id,
+            'total'       => 200.00,
+            'status'      => 'completed',
+        ]);
+
+        Sanctum::actingAs($customer1);
+
+        $response = $this->getJson('/api/orders');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('success', true);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $order1->id);
+    }
+
+    public function test_admin_can_list_all_orders_and_filter(): void
+    {
+        $admin     = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $customer1 = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+        $customer2 = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+
+        $order1 = Order::create([
+            'customer_id' => $customer1->id,
+            'total'       => 100.00,
+            'status'      => 'pending',
+        ]);
+
+        $order2 = Order::create([
+            'customer_id' => $customer2->id,
+            'total'       => 200.00,
+            'status'      => 'completed',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        // 1. List all orders
+        $response = $this->getJson('/api/orders');
+        $response->assertStatus(200);
+        $response->assertJsonCount(2, 'data');
+
+        // 2. Filter by status
+        $response = $this->getJson('/api/orders?status=completed');
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $order2->id);
+
+        // 3. Filter by customer
+        $response = $this->getJson('/api/orders?customer_id=' . $customer1->id);
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $order1->id);
+    }
+
+    public function test_customer_can_view_their_own_order_details(): void
+    {
+        $customer = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+        $product  = Product::factory()->create(['stock' => 10, 'is_active' => true, 'price' => 50.00]);
+
+        $order = Order::create([
+            'customer_id' => $customer->id,
+            'total'       => 50.00,
+            'status'      => 'pending',
+        ]);
+
+        $order->items()->create([
+            'product_id' => $product->id,
+            'quantity'   => 1,
+            'price'      => 50.00,
+        ]);
+
+        Sanctum::actingAs($customer);
+
+        $response = $this->getJson('/api/orders/' . $order->id);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('data.id', $order->id);
+        $response->assertJsonCount(1, 'data.items');
+        $response->assertJsonPath('data.items.0.product_id', $product->id);
+    }
+
+    public function test_customer_cannot_view_other_customers_order(): void
+    {
+        $customer1 = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+        $customer2 = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+
+        $order = Order::create([
+            'customer_id' => $customer2->id,
+            'total'       => 100.00,
+            'status'      => 'pending',
+        ]);
+
+        Sanctum::actingAs($customer1);
+
+        $response = $this->getJson('/api/orders/' . $order->id);
+        $response->assertStatus(403);
+    }
+
+    public function test_admin_can_view_any_order(): void
+    {
+        $admin    = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $customer = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+
+        $order = Order::create([
+            'customer_id' => $customer->id,
+            'total'       => 100.00,
+            'status'      => 'pending',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->getJson('/api/orders/' . $order->id);
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.id', $order->id);
+    }
+
+    public function test_view_non_existent_order_returns_404(): void
+    {
+        $customer = User::factory()->create(['role' => User::ROLE_CUSTOMER]);
+        Sanctum::actingAs($customer);
+
+        $response = $this->getJson('/api/orders/999999');
+        $response->assertStatus(404);
+    }
 }

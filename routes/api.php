@@ -28,8 +28,10 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 // Authenticated Routes
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Order placing route
-    Route::post('/orders', [OrderController::class, 'store']);
+    // Order Routes
+    Route::get('/orders',      [OrderController::class, 'index']);
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
+    Route::post('/orders',     [OrderController::class, 'store']);
 
     // Cart Routes
     Route::get('/cart',                 [CartController::class, 'index']);

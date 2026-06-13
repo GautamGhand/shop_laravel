@@ -69,4 +69,35 @@ class OrderService
             return $order->load(['items.product', 'customer']);
         });
     }
+
+    /**
+     * Get a paginated list of orders based on filters and user permissions.
+     */
+    public function getOrders(User $user, array $filters, int $perPage = 15)
+    {
+        if (!$user->isAdmin()) {
+            $filters['customer_id'] = $user->id;
+        }
+
+        return $this->orderRepository->paginate($perPage, $filters);
+    }
+
+    /**
+     * Get details of a single order.
+     *
+     * @param User $user
+     * @param int $id
+     * @return Order
+     * @throws Exception
+     */
+    public function getOrder(User $user, int $id): Order
+    {
+        $order = $this->orderRepository->findOrFail($id);
+
+        if (!$user->isAdmin() && $order->customer_id !== $user->id) {
+            throw new Exception("You are not authorized to view this order.", 403);
+        }
+
+        return $order->load(['items.product', 'customer']);
+    }
 }
