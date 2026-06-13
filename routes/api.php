@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\CartController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,6 +27,16 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 
 // Authenticated Routes
 Route::middleware('auth:sanctum')->group(function () {
+
+    // Order placing route
+    Route::post('/orders', [OrderController::class, 'store']);
+
+    // Cart Routes
+    Route::get('/cart',                 [CartController::class, 'index']);
+    Route::post('/cart',                [CartController::class, 'store']);
+    Route::put('/cart/{productId}',     [CartController::class, 'update']);
+    Route::delete('/cart/{productId}',  [CartController::class, 'destroy']);
+    Route::delete('/cart',              [CartController::class, 'clear']);
 
     // Auth actions
     Route::prefix('auth')->group(function () {
